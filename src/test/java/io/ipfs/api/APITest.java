@@ -413,7 +413,7 @@ public class APITest {
         Supplier<Map<String, Object>> sub = ipfs.pubsub.sub(topic);
         Map<String, Object> first = sub.get();
         Assert.assertTrue(first.equals(Collections.emptyMap()));
-        String data = "Hello!";
+        String data = "Hello World!";
         Object pub = ipfs.pubsub.pub(topic, data);
         Map second = sub.get();
         Assert.assertTrue( ! second.equals(Collections.emptyMap()));
