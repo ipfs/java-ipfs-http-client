@@ -31,6 +31,7 @@ public class IPFS {
     public final Pin pin = new Pin();
     public final Repo repo = new Repo();
     public final IPFSObject object = new IPFSObject();
+    public final Bitswap bitswap = new Bitswap();
     public final Swarm swarm = new Swarm();
     public final Bootstrap bootstrap = new Bootstrap();
     public final Block block = new Block();
@@ -59,6 +60,10 @@ public class IPFS {
 
     public IPFS(String host, int port, String version, boolean ssl) {
         this(host, port, version, DEFAULT_CONNECT_TIMEOUT_MILLIS, DEFAULT_READ_TIMEOUT_MILLIS, ssl);
+    }
+    
+    public void get() {
+    	
     }
 
     public IPFS(String host, int port, String version, int connectTimeoutMillis, int readTimeoutMillis, boolean ssl) {
@@ -497,6 +502,51 @@ public class IPFS {
             return ((List<String>)retrieveMap("bootstrap/rm?"+(all ? "all=true&":"")+"arg="+addr).get("Peers")).stream().map(x -> new MultiAddress(x)).collect(Collectors.toList());
         }
     }
+    
+    /**
+     * ipfs bitswap is a core module of IPFS for exchanging blocks of data. 
+     * It directs the requesting and sending of blocks to and from other 
+     * peers in the network.
+     * Bitswap is a message-based protocol where all messages contain want-lists or blocks.
+     * @author Renato Eschini  r.eschini@inera.it 
+     *
+     */
+    public class Bitswap {
+		
+		/**
+		 * Show the current ledger for a peer.
+		 * @param multihash The PeerID (B58) of the ledger to inspect. Required: yes
+		 * @return On success, the call to this endpoint will return with 200 and the following body:
+		 * {
+			  "Exchanged": "<uint64>",
+			  "Peer": "<string>",
+			  "Recv": "<uint64>",
+			  "Sent": "<uint64>",
+			  "Value": "<float64>"
+			}
+		 * @throws IOException
+		 */
+		public Map ledger(Multihash multihash) throws IOException {
+	        Map m = retrieveMap("bitswap/ledger?arg=" + multihash);
+	        return m;
+	    }
+		
+		public Map stat(Boolean verbose, Boolean human) throws IOException {
+			
+			String targetPath = "bitswap/stat";
+			if (verbose != null || human != null)
+				targetPath += "?";
+            if (verbose != null)
+                targetPath += "verbose=" + verbose.toString();
+            if (human != null)
+            	if (!targetPath.endsWith("?")) targetPath += "&";
+                targetPath += "human=" + human.toString();
+
+			
+	        Map m = retrieveMap(targetPath);
+	        return m;
+	    }
+	}
 
     /*  ipfs swarm is a tool to manipulate the network swarm. The swarm is the
         component that opens, listens for, and maintains connections to other
@@ -686,7 +736,9 @@ public class IPFS {
         URL target = new URL(protocol, host, port, version + path);
         return IPFS.get(target, connectTimeoutMillis, readTimeoutMillis);
     }
-
+    
+    public static boolean closeget = false;
+    
     private static byte[] get(URL target, int connectTimeoutMillis, int readTimeoutMillis) throws IOException {
         HttpURLConnection conn = configureConnection(target, "POST", connectTimeoutMillis, readTimeoutMillis);
         conn.setDoOutput(true);
@@ -720,8 +772,12 @@ public class IPFS {
 
             byte[] buf = new byte[4096];
             int r;
-            while ((r = in.read(buf)) >= 0)
-                resp.write(buf, 0, r);
+            while ((r = in.read(buf)) >= 0) {
+            	if (closeget) {
+            		return new byte[0];
+            	}
+            	resp.write(buf, 0, r);
+            }
             return resp.toByteArray();
         } catch (ConnectException e) {
             throw new RuntimeException("Couldn't connect to IPFS daemon at "+target+"\n Is IPFS running?");
